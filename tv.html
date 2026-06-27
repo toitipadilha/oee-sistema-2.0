@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="30">
+    <title>OEE Pro — Painel TV</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0d14;
+            --surface: #131720;
+            --border: #1e2436;
+            --accent: #00c896;
+            --warn: #f5a623;
+            --danger: #e84040;
+            --text: #ffffff;
+            --text-dim: #4a5068;
+            --font: 'Segoe UI', system-ui, sans-serif;
+            --mono: 'Cascadia Code', 'Consolas', monospace;
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── HEADER ── */
+        .tv-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 32px;
+            background: var(--surface);
+            border-bottom: 2px solid var(--accent);
+            flex-shrink: 0;
+        }
+
+        .tv-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .tv-brand .icon { font-size: 28px; }
+
+        .tv-brand .name {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: -.02em;
+        }
+
+        .tv-brand .sub {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .tv-date {
+            font-family: var(--mono);
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: .05em;
+        }
+
+        .tv-clock-sub {
+            font-size: 13px;
+            color: var(--text-dim);
+            text-align: right;
+        }
+
+        /* ── MAIN GRID ── */
+        .tv-body {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            grid-template-rows: 1fr;
+            gap: 0;
+            overflow: hidden;
+        }
+
+        /* ── LEFT PANEL - OEE PRINCIPAL ── */
+        .tv-left {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 20px;
+            gap: 20px;
+        }
+
+        .gauge-wrap {
+            position: relative;
+            width: 220px;
+            height: 220px;
+        }
+
+        .gauge-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -42%);
+            text-align: center;
+        }
+
+        .gauge-value {
+            font-size: 56px;
+            font-weight: 800;
+            font-family: var(--mono);
+            line-height: 1;
+        }
+
+        .gauge-label {
+            font-size: 13px;
+            color: var(--text-dim);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+        }
+
+        .oee-sub-stats {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+        }
+
+        .oee-sub {
+            text-align: center;
+        }
+
+        .oee-sub .label {
+            font-size: 11px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: .1em;
+        }
+
+        .oee-sub .val {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: var(--mono);
+        }
+
+        .divider {
+            width: 100%;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .tv-pecas {
+            text-align: center;
+        }
+
+        .tv-pecas .big {
+            font-size: 48px;
+            font-weight: 800;
+            font-family: var(--mono);
+            color: var(--accent);
+            line-height: 1;
+        }
+
+        .tv-pecas .label {
+            font-size: 13px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        .tv-pecas .refugo {
+            font-size: 16px;
+            color: var(--danger);
+            margin-top: 4px;
+        }
+
+        /* ── RIGHT PANEL ── */
+        .tv-right {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 16px;
+            overflow: hidden;
+        }
+
+        /* MÁQUINAS GRID */
+        .maquinas-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .14em;
+            color: var(--text-dim);
+        }
+
+        .maquinas-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .maquina-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            border-left: 4px solid;
+            position: relative;
+        }
+
+        .maquina-card.ok     { border-left-color: var(--accent); }
+        .maquina-card.alerta { border-left-color: var(--warn); }
+        .maquina-card.critico{ border-left-color: var(--danger); }
+        .maquina-card.sem_dados { border-left-color: var(--border); }
+
+        .maquina-nome {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .maquina-setor {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-bottom: 10px;
+        }
+
+        .maquina-oee {
+            font-size: 36px;
+            font-weight: 800;
+            font-family: var(--mono);
+            line-height: 1;
+        }
+
+        .maquina-oee.ok      { color: var(--accent); }
+        .maquina-oee.alerta  { color: var(--warn); }
+        .maquina-oee.critico { color: var(--danger); }
+        .maquina-oee.sem_dados { color: var(--text-dim); }
+
+        .maquina-pecas {
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-top: 4px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.ok      { background: var(--accent); }
+        .status-dot.alerta  { background: var(--warn); }
+        .status-dot.critico { background: var(--danger); animation: pulse-danger 1s infinite; }
+        .status-dot.sem_dados { background: var(--text-dim); animation: none; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: .5; transform: scale(1.3); }
+        }
+
+        @keyframes pulse-danger {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .2; }
+        }
+
+        /* ÚLTIMA PARADA */
+        .ultima-parada {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+
+        .parada-icon { font-size: 24px; }
+
+        .parada-info { flex: 1; }
+        .parada-info .title { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .1em; }
+        .parada-info .motivo { font-size: 15px; font-weight: 600; }
+        .parada-info .detalhe { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+        .parada-dur {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: var(--mono);
+            color: var(--warn);
+        }
+
+        /* FOOTER */
+        .tv-footer {
+            padding: 8px 32px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .tv-footer .left { font-size: 12px; color: var(--text-dim); }
+        .tv-footer .right { font-size: 12px; color: var(--text-dim); }
+        .tv-footer .refresh { color: var(--accent); }
+
+        /* STATUS BAR */
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+        }
+
+        .status-item .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="tv-header">
+    <div class="tv-brand">
+        <span class="icon">⚙</span>
+        <div>
+            <div class="name">OEE Pro</div>
+            <div class="sub">Toiti Sistemas · Painel de Produção</div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        {% set ok_count = maquinas_status|selectattr('status','eq','ok')|list|length %}
+        {% set alerta_count = maquinas_status|selectattr('status','eq','alerta')|list|length %}
+        {% set critico_count = maquinas_status|selectattr('status','eq','critico')|list|length %}
+        <div class="status-item"><div class="dot" style="background:#00c896"></div> {{ ok_count }} OK</div>
+        <div class="status-item"><div class="dot" style="background:#f5a623"></div> {{ alerta_count }} Alerta</div>
+        <div class="status-item"><div class="dot" style="background:#e84040"></div> {{ critico_count }} Crítico</div>
+    </div>
+
+    <div>
+        <div class="tv-date" id="clock">--:--:--</div>
+        <div class="tv-clock-sub">{{ hoje.strftime('%d/%m/%Y') }} · Atualiza em <span id="countdown">30</span>s</div>
+    </div>
+</div>
+
+<!-- BODY -->
+<div class="tv-body">
+
+    <!-- LEFT - OEE GERAL -->
+    <div class="tv-left">
+        <div class="gauge-wrap">
+            <canvas id="gaugeTV" width="220" height="220"></canvas>
+            <div class="gauge-center">
+                <div class="gauge-value" style="color:{{ '#00c896' if stats.oee >= 65 else ('#f5a623' if stats.oee >= 50 else '#e84040') }}">
+                    {{ '%.1f'|format(stats.oee) }}%
+                </div>
+                <div class="gauge-label">OEE Geral</div>
+            </div>
+        </div>
+
+        <div class="oee-sub-stats">
+            <div class="oee-sub">
+                <div class="label">Disp.</div>
+                <div class="val" style="color:#4a9eff">{{ '%.0f'|format(stats.disponibilidade) }}%</div>
+            </div>
+            <div class="oee-sub">
+                <div class="label">Perf.</div>
+                <div class="val" style="color:#f5a623">{{ '%.0f'|format(stats.performance) }}%</div>
+            </div>
+            <div class="oee-sub">
+                <div class="label">Qual.</div>
+                <div class="val" style="color:#b36aff">{{ '%.0f'|format(stats.qualidade) }}%</div>
+            </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="tv-pecas">
+            <div class="big">{{ stats.pecas_boas }}</div>
+            <div class="label">Peças Boas — Hoje</div>
+            <div class="refugo">{{ stats.pecas_refugo }} refugos</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="tv-pecas">
+            <div class="big" style="color:#f5a623;font-size:36px">{{ '%.0f'|format(stats.total_paradas_min) }}<span style="font-size:18px">min</span></div>
+            <div class="label">Tempo Parado — Hoje</div>
+        </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="tv-right">
+
+        <div class="maquinas-title">Status das Máquinas — {{ hoje.strftime('%d/%m/%Y') }}</div>
+
+        <div class="maquinas-grid">
+            {% for ms in maquinas_status %}
+            <div class="maquina-card {{ ms.status }}">
+                <div class="status-dot {{ ms.status }}"></div>
+                <div class="maquina-nome">{{ ms.maquina.nome }}</div>
+                <div class="maquina-setor">{{ ms.maquina.setor or '—' }}</div>
+                <div class="maquina-oee {{ ms.status }}">
+                    {% if ms.oee is not none %}{{ ms.oee }}%{% else %}—{% endif %}
+                </div>
+                <div class="maquina-pecas">{{ ms.pecas_boas }} peças boas hoje</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- ÚLTIMA PARADA -->
+        {% if ultima_parada %}
+        <div class="ultima-parada">
+            <span class="parada-icon">⏸</span>
+            <div class="parada-info">
+                <div class="title">Última Parada — {{ ultima_parada.maquina.nome }}</div>
+                <div class="motivo">{{ ultima_parada.motivo }}</div>
+                <div class="detalhe">{{ ultima_parada.categoria or '' }} · {{ ultima_parada.hora_inicio.strftime('%H:%M') }}{% if ultima_parada.hora_fim %} → {{ ultima_parada.hora_fim.strftime('%H:%M') }}{% endif %}</div>
+            </div>
+            {% if ultima_parada.duracao_min %}
+            <div class="parada-dur">{{ '%.0f'|format(ultima_parada.duracao_min) }}min</div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="ultima-parada">
+            <span class="parada-icon">✅</span>
+            <div class="parada-info">
+                <div class="title">Paradas Hoje</div>
+                <div class="motivo" style="color:#00c896">Nenhuma parada registrada hoje</div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- FOOTER -->
+<div class="tv-footer">
+    <div class="left">oee.toitisistemas.com.br · Toiti Sistemas</div>
+    <div class="right">Atualização automática a cada <span class="refresh">30 segundos</span></div>
+</div>
+
+<script>
+// RELÓGIO
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    const s = String(now.getSeconds()).padStart(2,'0');
+    document.getElementById('clock').textContent = `${h}:${m}:${s}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// COUNTDOWN
+let seconds = 30;
+setInterval(() => {
+    seconds--;
+    if (seconds <= 0) seconds = 30;
+    document.getElementById('countdown').textContent = seconds;
+}, 1000);
+
+// GAUGE
+const oeeVal = {{ stats.oee }};
+const oeeColor = oeeVal >= 65 ? '#00c896' : (oeeVal >= 50 ? '#f5a623' : '#e84040');
+const ctx = document.getElementById('gaugeTV').getContext('2d');
+new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        datasets: [{
+            data: [oeeVal, 100 - oeeVal],
+            backgroundColor: [oeeColor, '#1e2436'],
+            borderWidth: 0,
+            circumference: 240,
+            rotation: 240
+        }]
+    },
+    options: {
+        responsive: false,
+        cutout: '75%',
+        plugins: { legend: { display: false }, tooltip: { enabled: false } }
+    }
+});
+</script>
+</body>
+</html>
